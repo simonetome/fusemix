@@ -1,0 +1,15 @@
+name: fusemix
+channels:
+  - defaults
+dependencies:
+  - matplotlib
+  - pandas
+  - r-base
+  - scikit-learn
+  - spyder-kernels
+  - python=3.13
+  - conda-forge::r-mice
+  - miceforest
+  - plotnine
+  - notebook
+
