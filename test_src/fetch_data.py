@@ -28,6 +28,12 @@ def load_uciml(id: int = None, name: str = None, na_drop: bool = False):
     X = dataset.data.features
     if na_drop:
         X = X[pd.isna(X).sum()[~np.bool(pd.isna(X).sum().values)].index]
+
+    # Remove duplicate columns (happened in ID 174)
+    X = X.loc[:, ~X.columns.duplicated()]
+    dataset.variables = dataset.variables.loc[~dataset.variables['name'].duplicated(),:]
+    dataset.variables = dataset.variables.reset_index(drop=True)
+
     y = dataset.data.targets
 
     cat_variables = dataset.variables.loc[(dataset.variables['type'] == 'Categorical') | (dataset.variables['type'] == 'Binary'), 'name']
