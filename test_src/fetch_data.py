@@ -31,8 +31,13 @@ def load_uciml(id: int = None, name: str = None, na_drop: bool = False):
 
     # Remove duplicate columns (happened in ID 174)
     X = X.loc[:, ~X.columns.duplicated()]
+    
     dataset.variables = dataset.variables.loc[~dataset.variables['name'].duplicated(),:]
     dataset.variables = dataset.variables.reset_index(drop=True)
+
+    # sanitize names
+    X.columns = X.columns.str.replace(r'[^0-9a-zA-Z_]+', '_', regex=True)
+    dataset.variables['name'] = dataset.variables['name'].str.replace(r'[^0-9a-zA-Z_]+', '_', regex=True)
 
     y = dataset.data.targets
 

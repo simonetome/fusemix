@@ -25,6 +25,7 @@ class DataPipelineConfig:
     complete_data: pd.DataFrame = None
     num_classes: int = None
     verbose: bool = True
+    target: list = None
 
 class PipelineDataGeneration:
     """    
@@ -47,6 +48,7 @@ class PipelineDataGeneration:
         self.imputer = None
         self.incomplete_data = None
         self.multiple_data = None
+        self.target = cfg.target
         
         
     def run(self):

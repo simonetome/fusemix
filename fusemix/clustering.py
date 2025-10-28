@@ -11,17 +11,13 @@ functions to calculate clustering assignments
 import snf
 
 from numpy.typing import ArrayLike 
-
-from sklearn.cluster import spectral_clustering
+from sklearn.cluster import spectral_clustering, KMeans
 from gower import gower_matrix
-
 from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score, completeness_score, v_measure_score
-
 from sklearn.metrics import calinski_harabasz_score, davies_bouldin_score, silhouette_score
-
-
-
 from kPOD import k_pod
+
+import numpy as np
 
 def compute_fusemix(multiple_imputed_data,
                     cat_mask,
@@ -29,11 +25,38 @@ def compute_fusemix(multiple_imputed_data,
                     nn_snf,
                     seed):
     affinities = [snf.compute.make_affinity(d,metric = "gower",K=nn_snf,cat_features = cat_mask) for d in multiple_imputed_data]
-    
     fused_network = snf.snf(affinities, K=nn_snf)
     fusemix_labels = spectral_clustering(affinity=fused_network, n_clusters=num_clusters, random_state=seed)
     return fusemix_labels
 
+
+def compute_MICA(multiple_imputed_data,
+                 num_clusters,
+                 seed):
+    
+    # compute clustering for each view
+    results = []
+    for view in multiple_imputed_data: # view is a imputed dataset 
+        kmeans = KMeans(init="k-means++", 
+                        n_clusters=num_clusters,
+                        n_init=1, 
+                        random_state=seed)
+        results += [kmeans.fit(view).cluster_centers_]
+
+    # clustering centroids 
+    kmean_centroids = KMeans(init="k-means++", 
+                            n_clusters=num_clusters,
+                            n_init="auto", 
+                            random_state=seed)
+    kmean_centroids = kmean_centroids.fit(np.vstack(results))
+
+    predictions = [kmean_centroids.predict(X=view) for view in multiple_imputed_data]
+
+    majority_votes = np.array([
+        np.bincount(col).argmax() for col in np.vstack(predictions).T
+    ])
+
+    return majority_votes
 
 
 def compute_spectral(complete_data,
@@ -79,9 +102,6 @@ def internal_metrics(predicted_labels, gower_dist, complete_data):
     db -> lower means better
 
     """
-   
-
-
     sil_score = silhouette_score(X=gower_dist,metric="precomputed",labels=predicted_labels)
     dbouldin_score = davies_bouldin_score(X=complete_data, labels=predicted_labels)
     charabasz_score = calinski_harabasz_score(X=complete_data, labels=predicted_labels)

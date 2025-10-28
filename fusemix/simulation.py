@@ -25,9 +25,7 @@ class Simulation:
         self.id_datasets = id_datasets
         self.n_runs = n_runs
         self.md_param_grid = md_param_grid
-
         self.all_datasets = {}
-
         self.complete_vs_true = {}
         self.fuse_vs_true = {}
         self.fuse_vs_complete = {}
