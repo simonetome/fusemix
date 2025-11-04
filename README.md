@@ -1,13 +1,12 @@
-
 ## Note: This repo is a work in progrss
 
-Notebooks order for experiments:
+# Benchmark
 
-dataset_analysis 
-mdata_generation
-simulation
-simulation_analysis
+## Alternative methods 
 
-Some dependencies have been modified locally for simulations (pyampute and snfpy). The latter dependency will be "dropped" soon, with an ad-hoc implementation.
-
+- Spectral with single imputation
+- Kmeans with single imputation 
+- KPOD 
+- MICA 
+- MixtureMissing (https://cran.r-project.org/web/packages/MixtureMissing/refman/MixtureMissing.html)
 

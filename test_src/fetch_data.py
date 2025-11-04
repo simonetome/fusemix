@@ -34,17 +34,17 @@ def load_uciml(id: int = None, name: str = None, na_drop: bool = False):
     
     dataset.variables = dataset.variables.loc[~dataset.variables['name'].duplicated(),:]
     dataset.variables = dataset.variables.reset_index(drop=True)
+    features = dataset.data.features.columns # bug : these are not sanitized
 
     # sanitize names
     X.columns = X.columns.str.replace(r'[^0-9a-zA-Z_]+', '_', regex=True)
     dataset.variables['name'] = dataset.variables['name'].str.replace(r'[^0-9a-zA-Z_]+', '_', regex=True)
+    features = features.str.replace(r'[^0-9a-zA-Z_]+', '_', regex=True)
 
     y = dataset.data.targets
 
     cat_variables = dataset.variables.loc[(dataset.variables['type'] == 'Categorical') | (dataset.variables['type'] == 'Binary'), 'name']
     num_variables = dataset.variables.loc[(dataset.variables['type'] != 'Categorical') & (dataset.variables['type'] != 'Binary'), 'name']
-
-    features = dataset.data.features.columns
 
     cat_variables = cat_variables[cat_variables.isin(features)]
     num_variables = num_variables[num_variables.isin(features)]

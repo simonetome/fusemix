@@ -1,7 +1,7 @@
 ,Name,Id,Rows,Num_features,Num_categoricals,Num_classes,Missing_features,Missing_rows,Total_missings
 0,Parkinsons,174,195,20,0,2,0,0,0
 1,breast_cancer_wisconsin_diagnostic,17,569,30,0,2,0,0,0
-2,dermatology,33,366,34,0,6,1,8,8
+2,dermatology,33,366,34,1,6,1,8,8
 3,hearth_disease,45,303,13,7,5,2,6,6
 4,Breast_Cancer_Wisconsin_(Original),15,699,9,0,2,1,16,16
 5,Obesity,544,2111,16,8,7,0,0,0

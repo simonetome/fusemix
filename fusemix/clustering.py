@@ -70,11 +70,21 @@ def compute_spectral(complete_data,
                                                     random_state=seed)
     return spectral_labels
 
+def compute_kmeans(complete_data,
+                     num_clusters,
+                     seed) -> ArrayLike:
+    km = KMeans(n_clusters=num_clusters,random_state=seed)
+    km_labels = km.fit(complete_data).labels_
+    return km_labels
+
+
+
 
 def compute_kpod(incomplete_data,
-                 num_clusters):
+                 num_clusters,
+                 seed):
     
-    return k_pod(incomplete_data, num_clusters)
+    return k_pod(incomplete_data, num_clusters, random_state=seed)
 
 
 def external_metrics(true_labels,predicted_labels):
