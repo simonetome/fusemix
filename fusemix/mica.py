@@ -17,9 +17,11 @@ import numpy as np
 
 from sklearn.cluster import KMeans
 
-def compute_MICA(multiple_imputed_data,
-                 num_clusters,
-                 seed):
+def compute_MICA(
+   multiple_imputed_data,
+   num_clusters,
+   seed
+   ):
    """Function to compute MICA clustering
 
    Args:

@@ -49,7 +49,7 @@ def mige(
     p_max_ = p_max*n_features
     
     # Generate all projections for all data
-    if num_projections > 0:
+    if num_projections > 0 and p_min < 1:
         all_projections  = []
         for view in multiple_imputed_data:
             for i in range(num_projections):
@@ -61,17 +61,19 @@ def mige(
                     p_min_=p_min_,
                     p_max_=p_max_
                     ))
+
+        sparse_graphs = [__compute_sparse_similarity(prj_view,prj_mask,k_nn) for (prj_view, prj_mask) in all_projections]
     else:
         # if i don't want to project, I simply use the multiple imputed data
-        all_projections = multiple_imputed_data
+        sparse_graphs = [__compute_sparse_similarity(view,cat_mask,k_nn) for view in multiple_imputed_data]
 
-    # compute sparse similarity graphs for each projection 
-    sparse_graphs = [__compute_sparse_similarity(prj_view,prj_mask,k_nn) for (prj_view, prj_mask) in all_projections]
+
     # compute spectral clustering labels for each sparse graph 
     spectral_clustering_labels = [__compute_spectral(aff_mat,n_clusters=n_clusters, seed=seed) for aff_mat in sparse_graphs]
     # compute CO-cluster matrix using np broadcasting
     CO = (np.array(spectral_clustering_labels)[:, :, None] == np.array(spectral_clustering_labels)[:, None, :]).mean(axis=0)
     # perform sepctral on CO 
+    print("PERFORMING FINAL CONSENSUS")
     predicted_labels = __consensus_clustering(
         CO,
         num_clusters=n_clusters, 
@@ -94,33 +96,25 @@ def __generate_projection(data, cat_mask, n_features, rng, p_min_, p_max_):
     return (projected_view,cat_mask_projected)
 
 
-def __compute_sparse_similarity(data, cat_mask, k_nn):  
+def __compute_sparse_similarity(data, cat_mask, k_nn, mutual=False):
     """
-    Compute a sparse graph to encode samples pairwise similarity 
-
-    data: complete data
-    cat_mask: categorical mask for Gower distance 
-    k_nn: number of k nearest neighbors for sparsity
-    TODO mutual: if k_nn has to be applied in a mutual way  
-    """  
+    Compute a sparse symmetric similarity graph using Gower distance.
+    """
+    # Compute full pairwise Gower distance matrix (dense)
     gower_dist = gower_matrix(data, cat_features=cat_mask)
-    neighbors_idx = np.argsort(gower_dist, axis=1)[:, 1:k_nn+1]
 
-    # build sparse matrix 
-    rows = np.repeat(np.arange(gower_dist.shape[0]), k_nn)
-    cols = neighbors_idx.flatten()
-    A = csr_matrix((gower_dist[rows, cols], (rows, cols)), shape=gower_dist.shape)
+    # Sort distances row-wise and get k nearest neighbors
+    neighbors_idx = np.argsort(gower_dist, axis=1)[:, 1:k_nn+1]  # skip self distance at col 0
+    rows = np.arange(gower_dist.shape[0])[:, None]
 
-    # simmetrize matrix  
-    A = 0.5 * (A + A.T)
-    # from distance to similairity
-    A.data = 1-A.data
+    A = np.ones_like(gower_dist)
+    A[rows, neighbors_idx] = gower_dist[rows, neighbors_idx]
+    A[rows,rows] = 0
 
-    # normalize where each row sums to 1
-    row_sums = np.array(A.sum(axis=1)).flatten()
-    row_sums[row_sums == 0] = 1  # avoid division by zero
-    A = A.multiply(1 / row_sums[:, None])
-    return A
+    A_sim = 1-(1/2*(A + A.T))
+
+    return A_sim
+
 
 
 
@@ -159,3 +153,6 @@ def __consensus_clustering(CO, num_clusters, seed=None, threshold=0.5):
                             #assign_labels="cluster_qr"
                             )
     return sc.fit(graph).labels_
+
+
+

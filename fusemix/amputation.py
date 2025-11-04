@@ -104,11 +104,8 @@ class Amputer:
                                              size = int(self.mnar_number), 
                                              replace=False)
 
-
-        
         # Step 5: build pyampute parameters
         self.parameters = self.__build_pyampute_params()
-
 
         # Step 6: run amputation using pyampute
         ma = MultivariateAmputation(patterns = self.parameters,

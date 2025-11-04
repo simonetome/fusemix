@@ -6,119 +6,210 @@ Created on Tue May 20 15:58:29 2025
 
 functions to calculate clustering assignments
 
+Functions:
+    
+    compute_kpod: perform kpod algorithm
+
 """
 
 import snf
 
-from numpy.typing import ArrayLike 
 from sklearn.cluster import spectral_clustering, KMeans
+from sklearn.impute import KNNImputer
+
 from gower import gower_matrix
-from sklearn.metrics import adjusted_rand_score, adjusted_mutual_info_score, completeness_score, v_measure_score
-from sklearn.metrics import calinski_harabasz_score, davies_bouldin_score, silhouette_score
 from kPOD import k_pod
 
 import numpy as np
+from numpy.typing import ArrayLike 
 
-def compute_fusemix(multiple_imputed_data,
-                    cat_mask,
-                    num_clusters,
-                    nn_snf,
-                    seed):
+import pandas as pd
+
+
+def compute_kpod(
+    incomplete_data,
+    num_clusters,
+    seed
+    ):
+    """
+    Function to compute kPod algorithm
+
+    Args:
+        incomplete_data (pandas.DataFrame): dataset with possible missing values
+        num_clusters (integer): number of clusters
+        seed (integer): random number seed
+
+    Returns:
+        ArrayLike: list of clustering assignments 
+    """
+    return k_pod(incomplete_data, num_clusters, random_state=seed)[0]
+
+
+
+def compute_spectral_si_knn(
+    incomplete_data,
+    cat_mask,
+    num_clusters,
+    seed
+):
+    """
+    Compute spectral clustering on a single imputation
+    Algorithm: 
+     - impute using KNN with gower distance metric 
+     - perform spectral equally as CCA
+    """
+    imputer = KNNImputer(
+        missing_values=np.nan, 
+        n_neighbors=5, 
+        metric="nan_euclidean",
+    )
+    single_imputed_data = imputer.fit_transform(incomplete_data)
+    sc_complete = compute_spectral_complete(
+        complete_data=single_imputed_data,
+        cat_mask=cat_mask,
+        num_clusters=num_clusters,
+        seed=seed
+    )
+    return sc_complete
+
+def compute_spectral_si_mi(
+    multiple_imputed_data,
+    cat_mask,
+    num_clusters,
+    seed
+):
+    """
+    Compute spectral clustering on a single imputation
+    Algorithm: 
+     - impute using mean of multiple imputations
+     - perform spectral equally as CCA
+    """
+    view = multiple_imputed_data[0]
+
+    single_imputed_data = pd.DataFrame(
+        np.mean(np.array(multiple_imputed_data), axis = 0), 
+        columns=view.columns, 
+        index=view.index
+        )
+    
+    sc_complete = compute_spectral_complete(
+        complete_data=single_imputed_data,
+        cat_mask=cat_mask,
+        num_clusters=num_clusters,
+        seed=seed
+    )
+    return sc_complete
+
+def compute_kmeans_si_knn(
+    incomplete_data,
+    num_clusters,
+    seed
+):
+    """
+    Compute spectral clustering on a single imputation
+    Algorithm: 
+     - impute using KNN with gower distance metric 
+     - perform kmeans equally as CCA
+    """
+    imputer = KNNImputer(
+        missing_values=np.nan, 
+        n_neighbors=5, 
+        metric="nan_euclidean",
+    )
+    single_imputed_data = imputer.fit_transform(incomplete_data)
+    sc_complete = compute_kmeans_complete(
+        complete_data=single_imputed_data,
+        num_clusters=num_clusters,
+        seed=seed
+    )
+    return sc_complete
+
+def compute_kmeans_si_mi(
+    multiple_imputed_data,
+    num_clusters,
+    seed
+):
+    """
+    Compute spectral clustering on a single imputation
+    Algorithm: 
+     - impute using KNN with gower distance metric 
+     - perform kmeans equally as CCA
+    """
+    view = multiple_imputed_data[0]
+
+    single_imputed_data = pd.DataFrame(
+        np.mean(np.array(multiple_imputed_data), axis = 0), 
+        columns=view.columns, 
+        index=view.index
+        )
+    km_complete = compute_kmeans_complete(
+        complete_data=single_imputed_data,
+        num_clusters=num_clusters,
+        seed=seed
+    )
+    return km_complete
+
+
+def compute_fusemix(
+    multiple_imputed_data,
+    cat_mask,
+    num_clusters,
+    nn_snf,
+    seed
+    ):
+    """
+    Experimental
+    """
     affinities = [snf.compute.make_affinity(d,metric = "gower",K=nn_snf,cat_features = cat_mask) for d in multiple_imputed_data]
     fused_network = snf.snf(affinities, K=nn_snf)
     fusemix_labels = spectral_clustering(affinity=fused_network, n_clusters=num_clusters, random_state=seed)
     return fusemix_labels
 
 
-def compute_MICA(multiple_imputed_data,
-                 num_clusters,
-                 seed):
-    
-    # compute clustering for each view
-    results = []
-    for view in multiple_imputed_data: # view is a imputed dataset 
-        kmeans = KMeans(init="k-means++", 
-                        n_clusters=num_clusters,
-                        n_init=1, 
-                        random_state=seed)
-        results += [kmeans.fit(view).cluster_centers_]
-
-    # clustering centroids 
-    kmean_centroids = KMeans(init="k-means++", 
-                            n_clusters=num_clusters,
-                            n_init="auto", 
-                            random_state=seed)
-    kmean_centroids = kmean_centroids.fit(np.vstack(results))
-
-    predictions = [kmean_centroids.predict(X=view) for view in multiple_imputed_data]
-
-    majority_votes = np.array([
-        np.bincount(col).argmax() for col in np.vstack(predictions).T
-    ])
-
-    return majority_votes
-
-
-def compute_spectral(complete_data,
-                     cat_mask,
-                     num_clusters,
-                     seed) -> ArrayLike:
-    gower_dist_complete = gower_matrix(complete_data,
-                                        cat_features=cat_mask)
-    spectral_labels = spectral_clustering(affinity=(1 - gower_dist_complete),
-                                                    n_clusters=num_clusters,
-                                                    random_state=seed)
+def compute_spectral_complete(
+    complete_data,
+    cat_mask,
+    num_clusters,
+    seed,
+    ) -> ArrayLike:
+    """
+    Compute spectral clustering on complete data.
+    In this case the heat kernel of affinity matrix is used
+    """
+    gower_dist_complete = gower_matrix(complete_data,cat_features=cat_mask)
+    spectral_labels = spectral_clustering(
+        affinity=__heat_kernel_affinity(gower_dist_complete),
+        n_clusters=num_clusters,
+        random_state=seed,
+        )
     return spectral_labels
 
-def compute_kmeans(complete_data,
-                     num_clusters,
-                     seed) -> ArrayLike:
+
+def compute_kmeans_complete(
+    complete_data,
+    num_clusters,
+    seed,
+    ) -> ArrayLike:
     km = KMeans(n_clusters=num_clusters,random_state=seed)
     km_labels = km.fit(complete_data).labels_
     return km_labels
 
 
-
-
-def compute_kpod(incomplete_data,
-                 num_clusters,
-                 seed):
-    
-    return k_pod(incomplete_data, num_clusters, random_state=seed)
-
-
-def external_metrics(true_labels,predicted_labels):
+def __heat_kernel_affinity(distance_matrix, sigma=None):
     """
-    function to compute external metrics related to clustering
-    external metrics consider that there is a set of true labels, which in our case 
-    can be either the CCA labels or the true classes of the samples
+    Compute heat kernel from affinity matrix
     """
-    ari = adjusted_rand_score(true_labels,predicted_labels)
-    ami = adjusted_mutual_info_score(true_labels,predicted_labels)
-    cs = completeness_score(true_labels, predicted_labels)
-    vm = v_measure_score(true_labels, predicted_labels)
-    return {'ari':ari,'ami':ami,'vm': vm, 'cs':cs}    
+    # If sigma is not provided, set it to median distance (common heuristic)
+    if sigma is None:
+        # Avoid diagonal zeros
+        nonzero_dists = distance_matrix[distance_matrix > 0]
+        sigma = np.median(nonzero_dists)
+
+    # heat kernel
+    K = np.exp(-(distance_matrix ** 2) / (2 * sigma ** 2))
+    return K
 
 
-def internal_metrics(predicted_labels, gower_dist, complete_data):
-    """
-    internal validation metrics are tailored to clustering and can evaluate 
-    different qualities of a clustering results, e.g., separability, compactness, etc.
-
-    there are no true labels
-
-    sil -> higher means better
-    ch -> higher means better
-    db -> lower means better
-
-    """
-    sil_score = silhouette_score(X=gower_dist,metric="precomputed",labels=predicted_labels)
-    dbouldin_score = davies_bouldin_score(X=complete_data, labels=predicted_labels)
-    charabasz_score = calinski_harabasz_score(X=complete_data, labels=predicted_labels)
-
-    return {'sh':sil_score,
-            'ch':charabasz_score,
-            'db':dbouldin_score}
 
 
 
