@@ -18,7 +18,8 @@ for each view:
 
 from sklearn.cluster import SpectralClustering
 from scipy.sparse import csr_matrix
-
+import igraph as ig
+import leidenalg
 from gower import gower_matrix
 
 import numpy as np
@@ -31,6 +32,7 @@ def mige(
     p_min = 0.75,
     p_max = 0.85,
     num_projections = 5,
+    leiden = False,
     k_nn = 10,
     co_threshold = 0.5
     ):
@@ -67,13 +69,16 @@ def mige(
         # if i don't want to project, I simply use the multiple imputed data
         sparse_graphs = [__compute_sparse_similarity(view,cat_mask,k_nn) for view in multiple_imputed_data]
 
-
-    # compute spectral clustering labels for each sparse graph 
-    spectral_clustering_labels = [__compute_spectral(aff_mat,n_clusters=n_clusters, seed=seed) for aff_mat in sparse_graphs]
+    if leiden:
+        # use leiden algorithm
+        partition_labels = [__community_detection(aff_mat, seed=seed) for aff_mat in sparse_graphs]
+    else:    
+        # compute spectral clustering labels for each sparse graph 
+        partition_labels = [__compute_spectral(aff_mat,n_clusters=n_clusters, seed=seed) for aff_mat in sparse_graphs]
+    
     # compute CO-cluster matrix using np broadcasting
-    CO = (np.array(spectral_clustering_labels)[:, :, None] == np.array(spectral_clustering_labels)[:, None, :]).mean(axis=0)
-    # perform sepctral on CO 
-    print("PERFORMING FINAL CONSENSUS")
+    CO = (np.array(partition_labels)[:, :, None] == np.array(partition_labels)[:, None, :]).mean(axis=0)
+    # perform sepctral on CO
     predicted_labels = __consensus_clustering(
         CO,
         num_clusters=n_clusters, 
@@ -156,3 +161,13 @@ def __consensus_clustering(CO, num_clusters, seed=None, threshold=0.5):
 
 
 
+def __community_detection(A, sparse = False, seed = None):
+
+    if sparse:
+        A_sparse = sp.csr_matrix(A)
+        g = ig.Graph.Adjacency(A_sparse.toarray(), mode="UNDIRECTED")
+    else:
+        g = ig.Graph.Weighted_Adjacency(A, mode="UNDIRECTED", attr="weight")
+
+    part = leidenalg.find_partition(g, leidenalg.ModularityVertexPartition, seed=seed)
+    return part.membership
