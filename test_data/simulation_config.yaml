@@ -1,17 +1,21 @@
 # ids of the dataset from the uciml repo
 dataset_ids:
   - 33
-#  - 45
-
-#md_param_grid:
-#    props: [0.75,1.]
-#    mf_proportions: [0.5,0.75]
-#    mnar_proportions: [0.,0.25,0.5]
+  - 45
+  - 17
+  - 15
+  - 174
+  - 544
 
 md_param_grid:
-    props: [0.75]
-    mf_proportions: [0.75]
-    mnar_proportions: [0.5]
+    props: [0.75,1.]
+    mf_proportions: [0.5,0.75]
+    mnar_proportions: [0.,0.25,0.5]
+
+#md_param_grid:
+#    props: [0.75]
+#    mf_proportions: [0.75]
+#    mnar_proportions: [0.5]
 
 # how many runs for each missing data parameter copnfiguration
 # where each configuration has the form of:
