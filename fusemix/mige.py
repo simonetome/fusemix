@@ -13,7 +13,7 @@ for each view:
     for each projected dataset 
         - Compute Gower similarity matrix 
         - Compute sparsified adjacency matrix using KNN 
-        -    
+
 """
 
 from sklearn.cluster import SpectralClustering
@@ -34,7 +34,8 @@ def mige(
     num_projections = 5,
     leiden = False,
     k_nn = 10,
-    co_threshold = 0.5
+    co_threshold = 0.5,
+    mutual = True
     ):
     """
     MIGEClust function
@@ -64,10 +65,10 @@ def mige(
                     p_max_=p_max_
                     ))
 
-        sparse_graphs = [__compute_sparse_similarity(prj_view,prj_mask,k_nn) for (prj_view, prj_mask) in all_projections]
+        sparse_graphs = [__compute_sparse_similarity(prj_view,prj_mask,k_nn,mutual) for (prj_view, prj_mask) in all_projections]
     else:
         # if i don't want to project, I simply use the multiple imputed data
-        sparse_graphs = [__compute_sparse_similarity(view,cat_mask,k_nn) for view in multiple_imputed_data]
+        sparse_graphs = [__compute_sparse_similarity(view,cat_mask,k_nn,mutual) for view in multiple_imputed_data]
 
     if leiden:
         # use leiden algorithm
@@ -101,7 +102,7 @@ def __generate_projection(data, cat_mask, n_features, rng, p_min_, p_max_):
     return (projected_view,cat_mask_projected)
 
 
-def __compute_sparse_similarity(data, cat_mask, k_nn, mutual=False):
+def __compute_sparse_similarity(data, cat_mask, k_nn, mutual=True):
     """
     Compute a sparse symmetric similarity graph using Gower distance.
     """
@@ -116,7 +117,11 @@ def __compute_sparse_similarity(data, cat_mask, k_nn, mutual=False):
     A[rows, neighbors_idx] = gower_dist[rows, neighbors_idx]
     A[rows,rows] = 0
 
-    A_sim = 1-(1/2*(A + A.T))
+    if mutual:
+        A_sim_ = 1-A
+        A_sim = A_sim_ * ((A_sim_ > 0) & (A_sim_.T > 0))
+    else:
+        A_sim = 1-(1/2*(A + A.T))
 
     return A_sim
 
@@ -130,11 +135,13 @@ def __compute_spectral(sparse_affinity_mat,n_clusters,seed):
 
     return: labels of clustering
     """
+
     sc = SpectralClustering(n_clusters=n_clusters,
                             random_state=seed,
                             affinity="precomputed"
                             #assign_labels="cluster_qr"
                             )
+
 
     return sc.fit(sparse_affinity_mat).labels_
 
