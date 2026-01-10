@@ -1,0 +1,3 @@
+[submodule "libs/kPOD"]
+	path = libs/kPOD
+	url = git@github.com:simonetome/KPOD.git
